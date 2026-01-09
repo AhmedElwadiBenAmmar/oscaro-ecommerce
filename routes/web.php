@@ -5,6 +5,7 @@ use App\Http\Controllers\PieceController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CatalogueController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\CheckoutController;
 
 // Accueil public = liste des pièces (admin)
 Route::get('/', [PieceController::class, 'index'])->name('pieces.index');
@@ -30,6 +31,12 @@ Route::get('/dashboard', function () {
 Route::middleware('auth')->group(function () {
     // CRUD pièces sauf index (déjà public)
     Route::resource('pieces', PieceController::class)->except(['index']);
+
+   ;
+
+Route::get('/commande', [CheckoutController::class, 'create'])->name('checkout.create');
+Route::post('/commande', [CheckoutController::class, 'store'])->name('checkout.store');
+
 
     // Profil Breeze
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

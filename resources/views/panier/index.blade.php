@@ -95,12 +95,11 @@
                 </button>
             </form>
 
-            <button
-                type="button"
-                class="px-4 py-2 bg-red-600 text-white text-sm rounded cursor-not-allowed"
-                disabled>
-                Commander (à venir)
-            </button>
+            <a href="{{ route('checkout.create') }}"
+   class="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700">
+    Commander
+</a>
+
         </div>
     @endif
 @endsection
