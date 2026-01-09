@@ -25,9 +25,11 @@
                 </a>
 
                 @auth
-                    <a href="{{ url('/cart') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
+                    <a href="{{ route('cart.index') }}"
+                       class="text-sm font-medium text-gray-700 hover:text-red-600 {{ request()->routeIs('cart.*') ? 'font-semibold text-red-600' : '' }}">
                         Panier
                     </a>
+
                     <a href="{{ url('/dashboard') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
                         Mon compte
                     </a>
