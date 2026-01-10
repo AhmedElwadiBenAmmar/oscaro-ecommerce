@@ -13,14 +13,18 @@ return new class extends Migration
     {
         Schema::create('pieces', function (Blueprint $table) {
             $table->id();
-            $table->string('reference')->unique();
+            $table->string('reference');
             $table->string('nom');
             $table->text('description')->nullable();
             $table->decimal('prix', 10, 2);
             $table->integer('stock')->default(0);
-            $table->string('categorie')->nullable();
+            $table->string('image')->nullable();
+            $table->foreignId('category_id')
+                  ->constrained()          // table "categories", colonne "id"
+                  ->onDelete('cascade');
             $table->timestamps();
         });
+        
         
         
     }

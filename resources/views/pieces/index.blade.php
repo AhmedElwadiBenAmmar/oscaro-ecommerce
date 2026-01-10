@@ -12,6 +12,13 @@
         </div>
     @endif
 
+    <div class="mb-4 text-right">
+        <a href="{{ route('pieces.create') }}"
+           class="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700">
+            + Nouvelle pièce
+        </a>
+    </div>
+
     <div class="bg-white shadow sm:rounded-lg overflow-hidden">
         <table class="min-w-full text-sm text-gray-900">
             <thead class="bg-gray-100">
@@ -33,8 +40,14 @@
                         </td>
                         <td class="px-4 py-2 text-right">{{ $piece->stock }}</td>
                         <td class="px-4 py-2 text-right space-x-3">
-                            <a href="{{ route('pieces.show', $piece) }}" class="text-blue-500 hover:underline">Voir</a>
-                            <a href="{{ route('pieces.edit', $piece) }}" class="text-yellow-500 hover:underline">Éditer</a>
+                            <a href="{{ route('pieces.show', $piece) }}"
+                               class="text-blue-500 hover:underline">
+                                Voir
+                            </a>
+                            <a href="{{ route('pieces.edit', $piece) }}"
+                               class="text-yellow-500 hover:underline">
+                                Éditer
+                            </a>
                             <form action="{{ route('pieces.destroy', $piece) }}"
                                   method="POST"
                                   class="inline"

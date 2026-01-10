@@ -13,10 +13,17 @@
                 <div class="bg-white shadow-sm rounded-lg p-4 flex flex-col">
                     {{-- Image produit --}}
                     <div class="h-32 mb-3 bg-gray-100 rounded flex items-center justify-center">
-                        <img src="{{ asset('storage/filtre-huile.png') }}"
-                             alt="Filtre à huile {{ $piece->reference }}"
-                             class="h-full object-contain">
-                    </div>
+    @if($piece->image)
+        <img src="{{ asset('images/pieces/' . $piece->image) }}"
+             alt="{{ $piece->nom }}"
+             class="h-full object-contain">
+    @else
+        <img src="{{ asset('images/pieces/default.jpg') }}"
+             alt="{{ $piece->nom }}"
+             class="h-full object-contain">
+    @endif
+</div>
+
 
                     <h2 class="text-lg font-semibold text-gray-900">
                         {{ $piece->nom }}
