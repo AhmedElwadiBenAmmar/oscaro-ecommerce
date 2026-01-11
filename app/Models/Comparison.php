@@ -1,53 +1,79 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Models;
 
-use App\Http\Controllers\Controller;
-use App\Models\Review;
-use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ReviewModerationController extends Controller
+class Comparison extends Model
 {
-    public function __construct()
+    use HasFactory;
+
+    /**
+     * Table associée.
+     *
+     * @var string
+     */
+    protected $table = 'comparisons';
+
+    /**
+     * Attributs remplissables.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'user_id',
+        'piece_id',
+        'position',
+    ];
+
+    /**
+     * Casts.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'position' => 'integer',
+    ];
+
+    /**
+     * Utilisateur propriétaire de cette ligne de comparaison.
+     */
+    public function user(): BelongsTo
     {
-        // Middleware pour vérifier que l'utilisateur est admin
-        $this->middleware(['auth', 'admin']);
+        return $this->belongsTo(User::class);
     }
 
-    public function index() 
+    /**
+     * Pièce associée à cette entrée de comparaison.
+     */
+    public function piece(): BelongsTo
     {
-        $reviews = Review::with(['user', 'product'])
-            ->pending()
-            ->latest()
-            ->paginate(20);
-        
-        return view('admin.reviews.moderation', compact('reviews'));
+        return $this->belongsTo(Piece::class);
     }
 
-    public function approve(Review $review) 
+    /**
+     * Scope : comparaisons d’un utilisateur.
+     */
+    public function scopeForUser($query, int $userId)
     {
-        $review->update([
-            'status' => 'approved',
-            'moderated_by' => auth()->id(),
-            'moderated_at' => now()
-        ]);
-
-        return back()->with('success', 'Avis approuvé');
+        return $query->where('user_id', $userId);
     }
 
-    public function reject(Review $review, Request $request) 
+    /**
+     * Scope : comparaisons pour une pièce.
+     */
+    public function scopeForPiece($query, int $pieceId)
     {
-        $validated = $request->validate([
-            'reason' => 'required|string'
-        ]);
+        return $query->where('piece_id', $pieceId);
+    }
 
-        $review->update([
-            'status' => 'rejected',
-            'moderated_by' => auth()->id(),
-            'moderated_at' => now(),
-            'moderation_reason' => $validated['reason']
-        ]);
-
-        return back()->with('success', 'Avis rejeté');
+    /**
+     * Scope : ordonner par position.
+     */
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('position');
     }
 }

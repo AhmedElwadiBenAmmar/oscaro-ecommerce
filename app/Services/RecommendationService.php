@@ -3,76 +3,153 @@
 namespace App\Services;
 
 use App\Models\Product;
+use App\Models\Piece;
 use App\Models\User;
 use App\Models\UserProductInteraction;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class RecommendationService
 {
-    public function getRecommendations($userId, $limit = 10)
+    /**
+     * Recommandations personnalisées pour un utilisateur.
+     */
+    public function getPersonalizedRecommendations(User $user, int $limit = 12): Collection
     {
-        // Algorithme basé sur l'historique d'achat et de navigation
-        $userInteractions = UserProductInteraction::where('user_id', $userId)
-            ->with('product')
-            ->get()
-            ->groupBy('product_id');
-
-        $productIds = $userInteractions->keys();
-
-        // Trouver des produits similaires
-        $recommendations = Product::whereIn('category_id', function($query) use ($productIds) {
-                $query->select('category_id')
-                    ->from('products')
-                    ->whereIn('id', $productIds);
-            })
-            ->whereNotIn('id', $productIds)
-            ->withAvg('reviews as avg_rating', 'rating')
-            ->orderByDesc('avg_rating')
-            ->limit($limit)
-            ->get();
-
-        // Algorithme collaboratif: utilisateurs similaires
-        $similarUsers = $this->findSimilarUsers($userId);
-        
-        $collaborativeRecs = Product::whereIn('id', function($query) use ($similarUsers, $productIds) {
-                $query->select('product_id')
-                    ->from('user_product_interactions')
-                    ->whereIn('user_id', $similarUsers)
-                    ->whereNotIn('product_id', $productIds)
-                    ->where('type', 'purchase');
-            })
-            ->limit($limit)
-            ->get();
-
-        return $recommendations->merge($collaborativeRecs)->unique('id')->take($limit);
-    }
-
-    private function findSimilarUsers($userId)
-    {
-        // Trouver des utilisateurs ayant acheté des produits similaires
-        return User::whereHas('productInteractions', function($query) use ($userId) {
-                $query->whereIn('product_id', function($subquery) use ($userId) {
-                    $subquery->select('product_id')
-                        ->from('user_product_interactions')
-                        ->where('user_id', $userId)
-                        ->where('type', 'purchase');
-                });
-            })
-            ->where('id', '!=', $userId)
+        // 1. Produits basés sur les interactions (vues, clics, wishlist, panier)
+        $interactedProductIds = UserProductInteraction::where('user_id', $user->id)
+            ->orderBy('interaction_date', 'desc')
             ->limit(50)
-            ->pluck('id');
+            ->pluck('piece_id')   // on utilise piece_id car tes produits sont des "pieces"
+            ->toArray();
+
+        // 2. Produits de mêmes catégories
+        $categoryIds = DB::table('pieces')
+            ->whereIn('id', $interactedProductIds)
+            ->pluck('category_id')
+            ->unique()
+            ->toArray();
+
+        $query = Piece::query()
+            ->where('is_active', true)
+            ->where('stock', '>', 0);
+
+        if (!empty($categoryIds)) {
+            $query->whereIn('category_id', $categoryIds);
+        }
+
+        if (!empty($interactedProductIds)) {
+            $query->whereNotIn('id', $interactedProductIds);
+        }
+
+        return $query->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
     }
 
-    public function trackInteraction($userId, $productId, $type)
+    /**
+     * Produits populaires (fallback).
+     */
+    public function getPopularProducts(int $limit = 8): Collection
     {
-        $scores = ['view' => 1, 'cart' => 3, 'purchase' => 10];
+        return Piece::query()
+            ->where('is_active', true)
+            ->where('stock', '>', 0)
+            ->withCount('orderItems')
+            ->orderBy('order_items_count', 'desc')
+            ->limit($limit)
+            ->get();
+    }
 
-        UserProductInteraction::create([
-            'user_id' => $userId,
-            'product_id' => $productId,
-            'type' => $type,
-            'score' => $scores[$type],
-            'occurred_at' => now()
-        ]);
+    /**
+     * Produits récemment vus.
+     */
+    public function getRecentlyViewedProducts(User $user, int $limit = 6): Collection
+    {
+        $ids = UserProductInteraction::where('user_id', $user->id)
+            ->where('interaction_type', 'view')
+            ->orderBy('interaction_date', 'desc')
+            ->limit(50)
+            ->pluck('piece_id')
+            ->unique()
+            ->take($limit)
+            ->toArray();
+
+        return Piece::whereIn('id', $ids)->get();
+    }
+
+    /**
+     * Produits tendances.
+     */
+    public function getTrendingProducts(int $limit = 6): Collection
+    {
+        $since = now()->subDays(7);
+
+        $ids = UserProductInteraction::where('interaction_date', '>=', $since)
+            ->select('piece_id', DB::raw('count(*) as interactions_count'))
+            ->groupBy('piece_id')
+            ->orderByDesc('interactions_count')
+            ->limit(50)
+            ->pluck('piece_id')
+            ->toArray();
+
+        return Piece::whereIn('id', $ids)
+            ->where('is_active', true)
+            ->where('stock', '>', 0)
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Produits similaires à un produit donné.
+     */
+    public function getSimilarProducts(Piece $product, int $limit = 8): Collection
+    {
+        return Piece::where('id', '!=', $product->id)
+            ->where('category_id', $product->category_id)
+            ->where('is_active', true)
+            ->where('stock', '>', 0)
+            ->orderBy('price')
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Produits fréquemment achetés ensemble.
+     */
+    public function getFrequentlyBoughtTogether(Piece $product, int $limit = 4): Collection
+    {
+        $ids = DB::table('order_items as oi1')
+            ->join('order_items as oi2', function ($join) use ($product) {
+                $join->on('oi1.order_id', '=', 'oi2.order_id')
+                     ->where('oi1.piece_id', '=', $product->id)
+                     ->where('oi2.piece_id', '!=', $product->id);
+            })
+            ->select('oi2.piece_id', DB::raw('count(*) as freq'))
+            ->groupBy('oi2.piece_id')
+            ->orderByDesc('freq')
+            ->limit(50)
+            ->pluck('piece_id')
+            ->toArray();
+
+        return Piece::whereIn('id', $ids)
+            ->where('is_active', true)
+            ->where('stock', '>', 0)
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Produits complémentaires.
+     */
+    public function getComplementaryProducts(Piece $product, int $limit = 6): Collection
+    {
+        return Piece::where('id', '!=', $product->id)
+            ->where('category_id', '!=', $product->category_id)
+            ->where('is_active', true)
+            ->where('stock', '>', 0)
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
     }
 }

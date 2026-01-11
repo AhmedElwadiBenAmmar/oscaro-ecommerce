@@ -6,25 +6,19 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-       // database/migrations/xxxx_create_comparisons_table.php
-Schema::create('comparisons', function (Blueprint $table) {
-    $table->id();
-    $table->foreignId('user_id')->constrained()->onDelete('cascade');
-    $table->foreignId('product_id')->constrained()->onDelete('cascade');
-    $table->timestamp('added_at');
-    $table->unique(['user_id', 'product_id']);
-});
+        Schema::create('comparisons', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('piece_id')->constrained('pieces')->onDelete('cascade');
+            $table->integer('position')->default(0);
+            $table->timestamps();
 
+            $table->unique(['user_id', 'piece_id']);
+        });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('comparisons');

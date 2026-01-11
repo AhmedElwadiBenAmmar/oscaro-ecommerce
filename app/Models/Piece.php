@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Piece extends Model
 {
@@ -14,7 +15,22 @@ class Piece extends Model
         'nom',
         'description',
         'prix',
+        'brand_id',
         'stock',
-        'categorie',
+        'image',        // ajouté
+        'category_id',  // remplace 'categorie'
     ];
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+     /**
+     * Articles de commande associés à cette pièce.
+     */
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class, 'piece_id');
+    }
 }
+
