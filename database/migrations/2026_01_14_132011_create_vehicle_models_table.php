@@ -1,0 +1,24 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration {
+    public function up(): void
+    {
+        Schema::create('vehicle_models', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('vehicle_make_id')->constrained('vehicle_makes')->onDelete('cascade');
+            $table->string('name'); // 308, Clio, Golf ...
+            $table->smallInteger('year_from')->nullable();
+            $table->smallInteger('year_to')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('vehicle_models');
+    }
+};

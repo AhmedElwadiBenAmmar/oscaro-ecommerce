@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Piece;
-use App\Models\User;
 use App\Models\Category;
 use App\Models\OrderItem;
 use App\Models\UserProductInteraction;
@@ -22,6 +21,20 @@ class RecommendationController extends Controller
     }
 
     /**
+     * Récupère le véhicule courant (par exemple stocké en session).
+     */
+    protected function getCurrentVehicle(): ?Vehicle
+    {
+        $vehicleId = session('current_vehicle_id');
+
+        if (!$vehicleId) {
+            return null;
+        }
+
+        return Vehicle::find($vehicleId);
+    }
+
+    /**
      * Afficher les recommandations personnalisées pour l'utilisateur.
      */
     public function index()
@@ -33,23 +46,26 @@ class RecommendationController extends Controller
                 ->with('error', 'Vous devez être connecté pour voir vos recommandations.');
         }
 
+        $vehicle = $this->getCurrentVehicle();
+
         $personalizedRecommendations = $this->recommendationService
-            ->getPersonalizedRecommendations($user, 12);
+            ->getPersonalizedRecommendations($user, 12, $vehicle);
 
         $popularProducts = $this->recommendationService
-            ->getPopularProducts(8);
+            ->getPopularProducts(8, $vehicle);
 
         $recentlyViewed = $this->recommendationService
-            ->getRecentlyViewedProducts($user, 6);
+            ->getRecentlyViewedProducts($user, 6, $vehicle);
 
         $trendingProducts = $this->recommendationService
-            ->getTrendingProducts(6);
+            ->getTrendingProducts(6, $vehicle);
 
         return view('recommendations.index', compact(
             'personalizedRecommendations',
             'popularProducts',
             'recentlyViewed',
-            'trendingProducts'
+            'trendingProducts',
+            'vehicle'
         ));
     }
 
@@ -59,16 +75,16 @@ class RecommendationController extends Controller
     public function forProduct($pieceId, Request $request)
     {
         $piece = Piece::findOrFail($pieceId);
-        $user = Auth::user();
+        $vehicle = $this->getCurrentVehicle();
 
         $similarProducts = $this->recommendationService
-            ->getSimilarProducts($piece, 8);
+            ->getSimilarProducts($piece, 8, $vehicle);
 
         $frequentlyBoughtTogether = $this->recommendationService
-            ->getFrequentlyBoughtTogether($piece, 4);
+            ->getFrequentlyBoughtTogether($piece, 4, $vehicle);
 
         $complementaryProducts = $this->recommendationService
-            ->getComplementaryProducts($piece, 6);
+            ->getComplementaryProducts($piece, 6, $vehicle);
 
         if ($request->ajax()) {
             return response()->json([
@@ -82,7 +98,8 @@ class RecommendationController extends Controller
             'piece',
             'similarProducts',
             'frequentlyBoughtTogether',
-            'complementaryProducts'
+            'complementaryProducts',
+            'vehicle'
         ));
     }
 
@@ -92,26 +109,37 @@ class RecommendationController extends Controller
     public function forCategory($categorySlug)
     {
         $category = Category::where('slug', $categorySlug)->firstOrFail();
+        $vehicle = $this->getCurrentVehicle();
 
-        $topProducts = Piece::where('category_id', $category->id)
+        $topQuery = Piece::where('category_id', $category->id)
             ->where('is_active', true)
             ->where('stock', '>', 0)
             ->withCount('orderItems')
-            ->orderBy('order_items_count', 'desc')
-            ->limit(12)
-            ->get();
+            ->orderBy('order_items_count', 'desc');
 
-        $newProducts = Piece::where('category_id', $category->id)
+        $newQuery = Piece::where('category_id', $category->id)
             ->where('is_active', true)
             ->where('stock', '>', 0)
-            ->orderBy('created_at', 'desc')
-            ->limit(8)
-            ->get();
+            ->orderBy('created_at', 'desc');
+
+        if ($vehicle) {
+            $topQuery->whereHas('compatibleVehicles', function ($q) use ($vehicle) {
+                $q->where('vehicle_id', $vehicle->id);
+            });
+
+            $newQuery->whereHas('compatibleVehicles', function ($q) use ($vehicle) {
+                $q->where('vehicle_id', $vehicle->id);
+            });
+        }
+
+        $topProducts = $topQuery->limit(12)->get();
+        $newProducts = $newQuery->limit(8)->get();
 
         return view('recommendations.category', compact(
             'category',
             'topProducts',
-            'newProducts'
+            'newProducts',
+            'vehicle'
         ));
     }
 
@@ -123,6 +151,7 @@ class RecommendationController extends Controller
         $type = $request->input('type', 'popular');
         $limit = (int) $request->input('limit', 6);
         $user = Auth::user();
+        $vehicle = $this->getCurrentVehicle();
 
         $recommendations = collect();
 
@@ -130,33 +159,39 @@ class RecommendationController extends Controller
             case 'personalized':
                 if ($user) {
                     $recommendations = $this->recommendationService
-                        ->getPersonalizedRecommendations($user, $limit);
+                        ->getPersonalizedRecommendations($user, $limit, $vehicle);
                 }
                 break;
 
             case 'popular':
                 $recommendations = $this->recommendationService
-                    ->getPopularProducts($limit);
+                    ->getPopularProducts($limit, $vehicle);
                 break;
 
             case 'trending':
                 $recommendations = $this->recommendationService
-                    ->getTrendingProducts($limit);
+                    ->getTrendingProducts($limit, $vehicle);
                 break;
 
             case 'recent':
                 if ($user) {
                     $recommendations = $this->recommendationService
-                        ->getRecentlyViewedProducts($user, $limit);
+                        ->getRecentlyViewedProducts($user, $limit, $vehicle);
                 }
                 break;
 
             case 'new':
-                $recommendations = Piece::where('is_active', true)
+                $query = Piece::where('is_active', true)
                     ->where('stock', '>', 0)
-                    ->orderBy('created_at', 'desc')
-                    ->limit($limit)
-                    ->get();
+                    ->orderBy('created_at', 'desc');
+
+                if ($vehicle) {
+                    $query->whereHas('compatibleVehicles', function ($q) use ($vehicle) {
+                        $q->where('vehicle_id', $vehicle->id);
+                    });
+                }
+
+                $recommendations = $query->limit($limit)->get();
                 break;
 
             default:
@@ -176,6 +211,7 @@ class RecommendationController extends Controller
     public function forCart(Request $request)
     {
         $cartItems = $request->input('cart_items', []); // IDs de pièces
+        $vehicle = $this->getCurrentVehicle();
 
         if (empty($cartItems)) {
             return response()->json([
@@ -189,12 +225,18 @@ class RecommendationController extends Controller
 
         foreach ($pieces as $piece) {
             $complementary = $this->recommendationService
-                ->getComplementaryProducts($piece, 3);
+                ->getComplementaryProducts($piece, 3, $vehicle);
 
             $recommendations = $recommendations->merge($complementary);
         }
 
-        $recommendations = $recommendations->unique('id')
+        // Recos par job (kits)
+        $jobBased = $this->recommendationService
+            ->getJobBasedRecommendations($pieces, $vehicle, 10);
+
+        $recommendations = $recommendations
+            ->merge($jobBased)
+            ->unique('id')
             ->whereNotIn('id', $cartItems)
             ->take(6)
             ->values();
@@ -207,34 +249,39 @@ class RecommendationController extends Controller
 
     /**
      * Enregistrer une interaction utilisateur.
+     * À terme, tu peux ajouter vehicle_id + context dans la requête.
      */
     public function trackInteraction(Request $request)
-    {
-        $request->validate([
-            'product_id' => 'required|exists:pieces,id',
-            'interaction_type' => 'required|in:view,click,add_to_cart,wishlist,compare',
-        ]);
-
-        $user = Auth::user();
-
-        if (!$user) {
-            return response()->json(['message' => 'Non authentifié'], 401);
-        }
-
-        $piece = Piece::findOrFail($request->product_id);
-
-        UserProductInteraction::create([
-            'user_id' => $user->id,
-            'piece_id' => $piece->id,
-            'interaction_type' => $request->interaction_type,
-            'interaction_date' => now(),
-        ]);
-
-        return response()->json([
-            'message' => 'Interaction enregistrée',
-            'success' => true,
-        ]);
+{
+    if (!Auth::check()) {
+        return response()->json(['message' => 'Non authentifié'], 401);
     }
+
+    $request->validate([
+        'product_id'       => 'required|integer|exists:pieces,id',
+        'interaction_type' => 'required|string|in:view,click,add_to_cart,wishlist,compare',
+    ]);
+
+    $user  = Auth::user();
+    $piece = Piece::find($request->product_id);
+
+    if (!$piece) {
+        return response()->json(['message' => 'Pièce introuvable'], 404);
+    }
+
+    UserProductInteraction::create([
+        'user_id'         => $user->id,
+        'piece_id'        => $piece->id,
+        'interaction_type'=> $request->interaction_type,
+        'interaction_date'=> now(),
+    ]);
+
+    return response()->json([
+        'message' => 'Interaction enregistrée',
+        'success' => true,
+    ]);
+}
+
 
     /**
      * Recommandations basées sur l'historique d'achat.
@@ -246,6 +293,8 @@ class RecommendationController extends Controller
         if (!$user) {
             return redirect()->route('login');
         }
+
+        $vehicle = $this->getCurrentVehicle();
 
         $purchasedProducts = OrderItem::whereHas('order', function ($query) use ($user) {
                 $query->where('user_id', $user->id)
@@ -261,7 +310,7 @@ class RecommendationController extends Controller
 
         foreach ($purchasedProducts->take(5) as $piece) {
             $similar = $this->recommendationService
-                ->getSimilarProducts($piece, 4);
+                ->getSimilarProducts($piece, 4, $vehicle);
             $recommendations = $recommendations->merge($similar);
         }
 
@@ -271,12 +320,13 @@ class RecommendationController extends Controller
 
         return view('recommendations.purchases', compact(
             'purchasedProducts',
-            'recommendations'
+            'recommendations',
+            'vehicle'
         ));
     }
 
     /**
-     * Recommandations pour un véhicule.
+     * Recommandations pour un véhicule (page dédiée).
      */
     public function forVehicle($vehicleId)
     {
@@ -299,6 +349,9 @@ class RecommendationController extends Controller
             ->limit(8)
             ->get();
 
+        // On met aussi ce véhicule en "courant" en session
+        session(['current_vehicle_id' => $vehicle->id]);
+
         return view('recommendations.vehicle', compact(
             'vehicle',
             'compatibleProducts',
@@ -312,18 +365,28 @@ class RecommendationController extends Controller
     public function search(Request $request)
     {
         $query = $request->input('q');
+        $vehicle = $this->getCurrentVehicle();
 
-        $results = Piece::where(function ($q) use ($query) {
-                $q->where('name', 'LIKE', "%{$query}%")
-                  ->orWhere('description', 'LIKE', "%{$query}%")
-                  ->orWhere('nom', 'LIKE', "%{$query}%");
+        $resultsQuery = Piece::where(function ($q2) use ($query) {
+                $q2->where('name', 'LIKE', "%{$query}%")
+                   ->orWhere('description', 'LIKE', "%{$query}%")
+                   ->orWhere('nom', 'LIKE', "%{$query}%")
+                   ->orWhere('oem_reference', 'LIKE', "%{$query}%")
+                   ->orWhere('supplier_reference', 'LIKE', "%{$query}%");
             })
-            ->where('is_active', true)
-            ->paginate(20);
+            ->where('is_active', true);
+
+        if ($vehicle) {
+            $resultsQuery->whereHas('compatibleVehicles', function ($q) use ($vehicle) {
+                $q->where('vehicle_id', $vehicle->id);
+            });
+        }
+
+        $results = $resultsQuery->paginate(20);
 
         if ($results->count() < 5) {
             $recommendations = $this->recommendationService
-                ->getPopularProducts(8);
+                ->getPopularProducts(8, $vehicle);
         } else {
             $recommendations = collect();
         }
@@ -331,7 +394,8 @@ class RecommendationController extends Controller
         return view('recommendations.search', compact(
             'query',
             'results',
-            'recommendations'
+            'recommendations',
+            'vehicle'
         ));
     }
 

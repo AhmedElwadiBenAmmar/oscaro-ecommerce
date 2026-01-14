@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Oscaro Clone')</title>
 
+    {{-- CSRF pour les requêtes AJAX --}}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-100 text-gray-900">
@@ -16,33 +19,48 @@
                 Oscaro Clone
             </a>
 
-            <nav class="flex items-center space-x-4">
-                <a href="{{ url('/') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
-                    Accueil
-                </a>
-                <a href="{{ url('/produits') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
-                    Produits
-                </a>
-
-                @auth
-                <a href="{{ route('cart.index') }}"
-   class="text-sm text-gray-700 hover:underline">
-    Panier @if(cart_count() > 0) ({{ cart_count() }}) @endif
-</a>
-
-
-                    <a href="{{ url('/dashboard') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
-                        Mon compte
+            <div class="flex items-center space-x-6">
+                {{-- Navigation principale --}}
+                <nav class="flex items-center space-x-4">
+                    <a href="{{ url('/') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
+                        Accueil
                     </a>
-                @else
-                    <a href="{{ route('login') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
-                        Connexion
+                    <a href="{{ route('produits.index') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
+                        Produits
                     </a>
-                    <a href="{{ route('register') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
-                        Inscription
-                    </a>
-                @endauth
-            </nav>
+
+                    @auth
+                        <a href="{{ route('cart.index') }}" class="text-sm text-gray-700 hover:underline">
+                            Panier @if(cart_count() > 0) ({{ cart_count() }}) @endif
+                        </a>
+
+                        <a href="{{ url('/dashboard') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
+                            Mon compte
+                        </a>
+                    @else
+                        <a href="{{ route('login') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
+                            Connexion
+                        </a>
+                        <a href="{{ route('register') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
+                            Inscription
+                        </a>
+                    @endauth
+                </nav>
+
+                {{-- Formulaire de recherche catalogue --}}
+                <form action="{{ route('produits.index') }}" method="GET" class="flex items-center gap-2">
+                    <input
+                        type="text"
+                        name="q"
+                        value="{{ request('q') }}"
+                        placeholder="Rechercher une pièce, réf..."
+                        class="px-3 py-1 rounded border text-sm"
+                    >
+                    <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded text-sm">
+                        OK
+                    </button>
+                </form>
+            </div>
         </div>
     </header>
 

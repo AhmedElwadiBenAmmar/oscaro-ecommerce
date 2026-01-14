@@ -32,5 +32,15 @@ class Piece extends Model
     {
         return $this->hasMany(OrderItem::class, 'piece_id');
     }
+    public function images()
+{
+    return $this->hasMany(ProductImage::class);
+}
+public function compatibleEngines()
+{
+    return $this->belongsToMany(VehicleEngine::class, 'vehicle_piece');
+}
+
+
 }
 

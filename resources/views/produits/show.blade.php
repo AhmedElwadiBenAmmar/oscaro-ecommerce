@@ -63,6 +63,16 @@
                     class="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700">
                     Ajouter au panier
                 </button>
+                @auth
+<form action="{{ route('recommendations.api.track') }}" method="POST" class="mt-4">
+    @csrf
+    <input type="hidden" name="product_id" value="{{ $piece->id }}">
+    <input type="hidden" name="interaction_type" value="view">
+    <button type="submit" class="px-3 py-1 bg-blue-600 text-white text-sm rounded">
+        TEST: enregistrer vue
+    </button>
+</form>
+@endauth
 
                 <a href="{{ route('produits.index') }}"
                    class="text-sm text-gray-700 hover:underline">
@@ -71,4 +81,26 @@
             </form>
         </div>
     </div>
+
+    @auth
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            fetch("{{ route('recommendations.api.track') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    product_id: {{ $piece->id }},
+                    interaction_type: 'view',
+                    context: 'product_page',
+                }),
+            }).catch(error => {
+                console.error('Erreur tracking interaction:', error);
+            });
+        });
+    </script>
+    @endauth
 @endsection

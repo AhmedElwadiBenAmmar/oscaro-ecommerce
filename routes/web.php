@@ -13,6 +13,7 @@ use App\Http\Controllers\RecommendationController;
 use App\Http\Controllers\LoyaltyController;
 use App\Http\Controllers\VehicleSearchController;
 use App\Http\Controllers\Admin\ReviewModerationController;
+use App\Http\Controllers\VehicleController;
 
 /*
 |--------------------------------------------------------------------------
@@ -217,6 +218,18 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
             return view('admin.vehicles.lookups', compact('lookups'));
         })->name('lookups');
     });
+
+  
+
+Route::get('/vehicule', [VehicleController::class, 'form'])->name('vehicle.form');
+
+// Endpoints AJAX pour remplir les listes déroulantes
+Route::get('/vehicule/models',  [VehicleController::class, 'models'])->name('vehicle.models');
+Route::get('/vehicule/engines', [VehicleController::class, 'engines'])->name('vehicle.engines');
+
+// Validation du véhicule choisi
+Route::post('/vehicule/select', [VehicleController::class, 'select'])->name('vehicle.select');
+
 
     // Rapports
     Route::prefix('rapports')->name('reports.')->group(function () {

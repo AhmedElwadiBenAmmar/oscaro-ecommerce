@@ -13,7 +13,11 @@
                 <div class="col-md-3 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
-                            <h5 class="card-title">{{ $piece->nom ?? $piece->name ?? 'Pièce #'.$piece->id }}</h5>
+                            <h5 class="card-title">
+                                <a href="{{ route('produits.show', $piece->id) }}">
+                                    {{ $piece->nom ?? $piece->name ?? 'Pièce #'.$piece->id }}
+                                </a>
+                            </h5>
                             @isset($piece->price)
                                 <p class="card-text">{{ $piece->price }} €</p>
                             @endisset
@@ -35,7 +39,11 @@
                 <div class="col-md-3 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
-                            <h5 class="card-title">{{ $piece->nom ?? $piece->name ?? 'Pièce #'.$piece->id }}</h5>
+                            <h5 class="card-title">
+                                <a href="{{ route('produits.show', $piece->id) }}">
+                                    {{ $piece->nom ?? $piece->name ?? 'Pièce #'.$piece->id }}
+                                </a>
+                            </h5>
                         </div>
                     </div>
                 </div>
@@ -54,7 +62,11 @@
                 <div class="col-md-3 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
-                            <h5 class="card-title">{{ $piece->nom ?? $piece->name ?? 'Pièce #'.$piece->id }}</h5>
+                            <h5 class="card-title">
+                                <a href="{{ route('produits.show', $piece->id) }}">
+                                    {{ $piece->nom ?? $piece->name ?? 'Pièce #'.$piece->id }}
+                                </a>
+                            </h5>
                         </div>
                     </div>
                 </div>
@@ -73,7 +85,11 @@
                 <div class="col-md-3 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
-                            <h5 class="card-title">{{ $piece->nom ?? $piece->name ?? 'Pièce #'.$piece->id }}</h5>
+                            <h5 class="card-title">
+                                <a href="{{ route('produits.show', $piece->id) }}">
+                                    {{ $piece->nom ?? $piece->name ?? 'Pièce #'.$piece->id }}
+                                </a>
+                            </h5>
                         </div>
                     </div>
                 </div>

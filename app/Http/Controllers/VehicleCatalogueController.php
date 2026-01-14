@@ -13,19 +13,16 @@ class CatalogueController extends Controller
      */
     public function index(Request $request)
     {
-        // 0. Recherche par référence exacte
-    if ($term = $request->input('q')) {
-        $term = trim($term);
+        // 0. Si une référence exacte est trouvée, aller directement sur la fiche produit
+        if ($term = $request->input('q')) {
+            $term = trim($term);
 
-        // supprimer éventuellement le préfixe "Réf." ou "Réf. "
-        $term = preg_replace('/^réf\.?\s*/i', '', $term);
+            $pieceExact = Piece::where('reference', $term)->first();
 
-        $pieceExact = Piece::where('reference', $term)->first();
-
-        if ($pieceExact) {
-            return redirect()->route('produits.show', $pieceExact);
+            if ($pieceExact) {
+                return redirect()->route('produits.show', $pieceExact);
+            }
         }
-    }
 
         // 1. Requête catalogue classique
         $query = Piece::query()
@@ -53,10 +50,9 @@ class CatalogueController extends Controller
             $query->where('category_id', $categoryId);
         }
 
-        // Pas de colonne "brand" pour l’instant, on commente ce filtre
-        // if ($brand = $request->input('brand')) {
-        //     $query->where('brand', $brand);
-        // }
+        if ($brand = $request->input('brand')) {
+            $query->where('brand', $brand);
+        }
 
         if ($side = $request->input('side')) {
             $query->where('side', $side);
@@ -97,8 +93,7 @@ class CatalogueController extends Controller
         $pieces = $query->paginate(12)->withQueryString();
 
         $categories = Category::orderBy('nom')->get();
-        // Pas de colonne brand -> liste vide pour le moment
-        $brands = collect();
+        $brands     = Piece::select('brand')->distinct()->orderBy('brand')->pluck('brand');
 
         $selectedEngineId = session('selected_engine_id');
 
@@ -118,8 +113,6 @@ class CatalogueController extends Controller
                 'sort'      => $request->input('sort'),
             ],
         ]);
-        
-        
     }
 
     /**
@@ -135,7 +128,4 @@ class CatalogueController extends Controller
 
         return view('pieces.show', compact('piece', 'similarPieces'));
     }
-
-  
 }
-
