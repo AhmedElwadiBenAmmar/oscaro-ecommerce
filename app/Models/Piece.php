@@ -40,6 +40,13 @@ public function compatibleEngines()
 {
     return $this->belongsToMany(VehicleEngine::class, 'vehicle_piece');
 }
+public function compatibleVehicles()
+{
+    return $this->belongsToMany(Vehicle::class, 'piece_vehicle_compatibility')
+                ->withPivot(['verified', 'notes'])
+                ->withTimestamps();
+}
+
 
 
 }

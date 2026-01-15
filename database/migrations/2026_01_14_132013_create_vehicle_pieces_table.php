@@ -9,8 +9,15 @@ return new class extends Migration {
     {
         Schema::create('vehicle_piece', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('vehicle_engine_id')->constrained('vehicle_engines')->onDelete('cascade');
-            $table->foreignId('piece_id')->constrained('pieces')->onDelete('cascade');
+
+            $table->foreignId('vehicle_engine_id')
+                  ->constrained('vehicle_engines')
+                  ->cascadeOnDelete();
+
+            $table->foreignId('piece_id')
+                  ->constrained('pieces')
+                  ->cascadeOnDelete();
+
             $table->timestamps();
 
             $table->unique(['vehicle_engine_id', 'piece_id']);

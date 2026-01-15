@@ -29,6 +29,11 @@
                         Produits
                     </a>
 
+                    {{-- Lien sélection véhicule --}}
+                    <a href="{{ route('vehicle.form') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
+                        Mon véhicule
+                    </a>
+
                     @auth
                         <a href="{{ route('cart.index') }}" class="text-sm text-gray-700 hover:underline">
                             Panier @if(cart_count() > 0) ({{ cart_count() }}) @endif

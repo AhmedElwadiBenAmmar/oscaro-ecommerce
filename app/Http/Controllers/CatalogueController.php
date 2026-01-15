@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Piece;
 use App\Models\Category;
+use App\Models\Vehicle;                    // <-- ajouter
+use App\Services\RecommendationService;    // <-- ajouter
 use Illuminate\Http\Request;
 
 class CatalogueController extends Controller
@@ -14,32 +16,30 @@ class CatalogueController extends Controller
     public function index(Request $request)
     {
         // 0. Recherche par référence exacte
-    if ($term = $request->input('q')) {
-        $term = trim($term);
+        if ($term = $request->input('q')) {
+            $term = trim($term);
+            $term = preg_replace('/^réf\.?\s*/i', '', $term);
 
-        // supprimer éventuellement le préfixe "Réf." ou "Réf. "
-        $term = preg_replace('/^réf\.?\s*/i', '', $term);
+            $pieceExact = Piece::where('reference', $term)->first();
 
-        $pieceExact = Piece::where('reference', $term)->first();
-
-        if ($pieceExact) {
-            return redirect()->route('produits.show', $pieceExact);
+            if ($pieceExact) {
+                return redirect()->route('produits.show', $pieceExact);
+            }
         }
-    }
 
         // 1. Requête catalogue classique
         $query = Piece::query()
             ->with(['category', 'compatibleEngines'])
             ->where('stock', '>', 0);
 
-        // 1. Filtre compatibilité véhicule
+        // 1. Filtre compatibilité moteur
         if ($engineId = session('selected_engine_id')) {
             $query->whereHas('compatibleEngines', function ($q) use ($engineId) {
                 $q->where('vehicle_engines.id', $engineId);
             });
         }
 
-        // 2. Recherche texte (fallback si pas de ref exacte)
+        // 2. Recherche texte
         if ($term = $request->input('q')) {
             $query->where(function ($q) use ($term) {
                 $q->where('nom', 'like', "%{$term}%")
@@ -52,11 +52,6 @@ class CatalogueController extends Controller
         if ($categoryId = $request->input('category')) {
             $query->where('category_id', $categoryId);
         }
-
-        // Pas de colonne "brand" pour l’instant, on commente ce filtre
-        // if ($brand = $request->input('brand')) {
-        //     $query->where('brand', $brand);
-        // }
 
         if ($side = $request->input('side')) {
             $query->where('side', $side);
@@ -72,6 +67,12 @@ class CatalogueController extends Controller
 
         if ($maxPrice = $request->input('max_price')) {
             $query->where('prix', '<=', (float) $maxPrice);
+        }
+
+        if ($vehicleId = session('selected_vehicle_id')) {
+            $query->whereHas('compatibleVehicles', function ($q) use ($vehicleId) {
+                $q->where('vehicles.id', $vehicleId);
+            });
         }
 
         // 4. Tri
@@ -97,9 +98,7 @@ class CatalogueController extends Controller
         $pieces = $query->paginate(12)->withQueryString();
 
         $categories = Category::orderBy('nom')->get();
-        // Pas de colonne brand -> liste vide pour le moment
         $brands = collect();
-
         $selectedEngineId = session('selected_engine_id');
 
         return view('pieces.catalogue', [
@@ -118,13 +117,8 @@ class CatalogueController extends Controller
                 'sort'      => $request->input('sort'),
             ],
         ]);
-        
-        
     }
 
-    /**
-     * Affiche le détail d'une pièce.
-     */
     public function show(Piece $piece)
     {
         $similarPieces = Piece::where('category_id', $piece->category_id)
@@ -133,9 +127,16 @@ class CatalogueController extends Controller
             ->take(6)
             ->get();
 
-        return view('pieces.show', compact('piece', 'similarPieces'));
-    }
+        // Recos complémentaires via service
+        $vehicle = session('current_vehicle_id')
+            ? Vehicle::find(session('current_vehicle_id'))
+            : null;
 
-  
+        $complementary = app(RecommendationService::class)
+            ->getComplementaryProducts($piece, 6, $vehicle);
+
+            return view('produits.show', compact('piece', 'similarPieces', 'complementary'));
+
+    }
 }
 

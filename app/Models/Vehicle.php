@@ -43,4 +43,11 @@ class Vehicle extends Model
     {
         return $this->hasMany(UserProductInteraction::class);
     }
+    public function compatiblePieces()
+{
+    return $this->belongsToMany(Piece::class, 'piece_vehicle_compatibility')
+                ->withPivot(['verified', 'notes'])
+                ->withTimestamps();
+}
+
 }

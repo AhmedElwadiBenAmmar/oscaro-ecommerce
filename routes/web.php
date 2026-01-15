@@ -14,6 +14,7 @@ use App\Http\Controllers\LoyaltyController;
 use App\Http\Controllers\VehicleSearchController;
 use App\Http\Controllers\Admin\ReviewModerationController;
 use App\Http\Controllers\VehicleController;
+use App\Http\Controllers\VehicleCatalogueController;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,9 +25,9 @@ use App\Http\Controllers\VehicleController;
 // Accueil public = liste des pièces
 Route::get('/', [PieceController::class, 'index'])->name('pieces.index');
 
-// Catalogue produits
-Route::get('/produits', [CatalogueController::class, 'index'])->name('produits.index');
-Route::get('/produits/{piece}', [CatalogueController::class, 'show'])->name('produits.show');
+// Catalogue produits (FRONT UNIQUE)
+Route::get('/produits', [VehicleCatalogueController::class, 'index'])->name('produits.index');
+Route::get('/produits/{piece}', [VehicleCatalogueController::class, 'show'])->name('produits.show');
 
 // Panier (session)
 Route::prefix('panier')->name('cart.')->group(function () {
@@ -42,12 +43,18 @@ Route::prefix('vehicules')->name('vehicle.')->group(function () {
     Route::get('/recherche', [VehicleSearchController::class, 'index'])->name('search');
     Route::post('/recherche', [VehicleSearchController::class, 'search'])->name('search.post');
     Route::get('/produits-compatibles/{vehicle}', [VehicleSearchController::class, 'compatibleProducts'])->name('compatible');
-    
+
     // API pour sélecteur véhicule
     Route::get('/api/marques', [VehicleSearchController::class, 'getMakes'])->name('api.makes');
     Route::get('/api/modeles/{make}', [VehicleSearchController::class, 'getModels'])->name('api.models');
     Route::get('/api/annees/{make}/{model}', [VehicleSearchController::class, 'getYears'])->name('api.years');
 });
+
+// Sélecteur véhicule Oscaro-like (public)
+Route::get('/vehicule', [VehicleController::class, 'form'])->name('vehicle.form');
+Route::get('/vehicule/models',  [VehicleController::class, 'models'])->name('vehicle.models');
+Route::get('/vehicule/engines', [VehicleController::class, 'engines'])->name('vehicle.engines');
+Route::post('/vehicule/select', [VehicleController::class, 'select'])->name('vehicle.select');
 
 // Avis produits (lecture publique)
 Route::prefix('avis')->name('reviews.')->group(function () {
@@ -60,7 +67,7 @@ Route::prefix('recommandations')->name('recommendations.')->group(function () {
     Route::get('/produit/{product}', [RecommendationController::class, 'forProduct'])->name('product');
     Route::get('/categorie/{category}', [RecommendationController::class, 'forCategory'])->name('category');
     Route::get('/recherche', [RecommendationController::class, 'search'])->name('search');
-    
+
     // API
     Route::get('/api/rapide', [RecommendationController::class, 'quick'])->name('api.quick');
 });
@@ -72,7 +79,7 @@ Route::prefix('recommandations')->name('recommendations.')->group(function () {
 */
 
 Route::middleware('auth')->group(function () {
-    
+
     // Dashboard
     Route::get('/dashboard', function () {
         return view('dashboard');
@@ -88,14 +95,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/confirmation/{order}', [CheckoutController::class, 'confirmation'])->name('confirmation');
     });
 
-    // Profil utilisateur (Breeze)
+    // Profil utilisateur
     Route::prefix('profile')->name('profile.')->group(function () {
         Route::get('/', [ProfileController::class, 'edit'])->name('edit');
         Route::patch('/', [ProfileController::class, 'update'])->name('update');
         Route::delete('/', [ProfileController::class, 'destroy'])->name('destroy');
     });
 
-    // Liste de souhaits (Wishlist)
+    // Wishlist
     Route::prefix('wishlist')->name('wishlist.')->group(function () {
         Route::get('/', [WishlistController::class, 'index'])->name('index');
         Route::post('/ajouter/{product}', [WishlistController::class, 'add'])->name('add');
@@ -103,7 +110,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/', [WishlistController::class, 'clear'])->name('clear');
     });
 
-    // Comparateur de produits
+    // Comparateur
     Route::prefix('comparaison')->name('comparison.')->group(function () {
         Route::get('/', [ComparisonController::class, 'index'])->name('index');
         Route::post('/ajouter/{product}', [ComparisonController::class, 'add'])->name('add');
@@ -118,8 +125,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/{review}/modifier', [ReviewController::class, 'edit'])->name('edit');
         Route::patch('/{review}', [ReviewController::class, 'update'])->name('update');
         Route::delete('/{review}', [ReviewController::class, 'destroy'])->name('destroy');
-        
-        // Vote sur les avis
         Route::post('/{review}/voter', [ReviewController::class, 'vote'])->name('vote');
     });
 
@@ -147,7 +152,7 @@ Route::middleware('auth')->group(function () {
             $orders = auth()->user()->orders()->latest()->paginate(10);
             return view('orders.index', compact('orders'));
         })->name('index');
-        
+
         Route::get('/{order}', function ($orderId) {
             $order = auth()->user()->orders()->findOrFail($orderId);
             return view('orders.show', compact('order'));
@@ -162,7 +167,7 @@ Route::middleware('auth')->group(function () {
 */
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
-    
+
     // Dashboard admin
     Route::get('/dashboard', function () {
         return view('admin.dashboard');
@@ -183,10 +188,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
             $users = \App\Models\User::paginate(20);
             return view('admin.users.index', compact('users'));
         })->name('index');
-        
+
         Route::patch('/{user}/admin', function ($userId) {
             $user = \App\Models\User::findOrFail($userId);
-            $user->is_admin = !$user->is_admin;
+            $user->is_admin = ! $user->is_admin;
             $user->save();
             return back()->with('success', 'Statut administrateur modifié');
         })->name('toggle-admin');
@@ -204,13 +209,13 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/statistiques/fidelite', [LoyaltyController::class, 'adminStats'])
         ->name('loyalty.stats');
 
-    // Gestion des véhicules
+    // Gestion des véhicules (back-office)
     Route::prefix('vehicules')->name('vehicles.')->group(function () {
         Route::get('/', function () {
             $vehicles = \App\Models\Vehicle::paginate(20);
             return view('admin.vehicles.index', compact('vehicles'));
         })->name('index');
-        
+
         Route::get('/recherches', function () {
             $lookups = \App\Models\LicensePlateLookup::with('vehicle')
                 ->orderBy('lookup_count', 'desc')
@@ -219,24 +224,12 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         })->name('lookups');
     });
 
-  
-
-Route::get('/vehicule', [VehicleController::class, 'form'])->name('vehicle.form');
-
-// Endpoints AJAX pour remplir les listes déroulantes
-Route::get('/vehicule/models',  [VehicleController::class, 'models'])->name('vehicle.models');
-Route::get('/vehicule/engines', [VehicleController::class, 'engines'])->name('vehicle.engines');
-
-// Validation du véhicule choisi
-Route::post('/vehicule/select', [VehicleController::class, 'select'])->name('vehicle.select');
-
-
     // Rapports
     Route::prefix('rapports')->name('reports.')->group(function () {
         Route::get('/ventes', function () {
             return view('admin.reports.sales');
         })->name('sales');
-        
+
         Route::get('/produits', function () {
             return view('admin.reports.products');
         })->name('products');

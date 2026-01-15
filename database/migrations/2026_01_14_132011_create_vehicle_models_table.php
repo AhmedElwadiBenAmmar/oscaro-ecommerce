@@ -9,8 +9,11 @@ return new class extends Migration {
     {
         Schema::create('vehicle_models', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('vehicle_make_id')->constrained('vehicle_makes')->onDelete('cascade');
-            $table->string('name'); // 308, Clio, Golf ...
+            $table->foreignId('vehicle_make_id')
+                  ->constrained('vehicle_makes')
+                  ->cascadeOnDelete();
+
+            $table->string('name');              // 308, Clio, Golf...
             $table->smallInteger('year_from')->nullable();
             $table->smallInteger('year_to')->nullable();
             $table->timestamps();

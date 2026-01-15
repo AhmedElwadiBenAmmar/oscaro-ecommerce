@@ -23,7 +23,7 @@ class VehicleEngine extends Model
     }
 
     public function pieces()
-    {
-        return $this->belongsToMany(Piece::class, 'vehicle_piece');
-    }
+{
+    return $this->belongsToMany(Piece::class, 'vehicle_piece');
+}
 }

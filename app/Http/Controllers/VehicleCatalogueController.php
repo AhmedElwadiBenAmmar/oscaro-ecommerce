@@ -6,14 +6,14 @@ use App\Models\Piece;
 use App\Models\Category;
 use Illuminate\Http\Request;
 
-class CatalogueController extends Controller
+class VehicleCatalogueController extends Controller
 {
     /**
      * Affiche le catalogue des pièces (front office).
      */
     public function index(Request $request)
     {
-        // 0. Si une référence exacte est trouvée, aller directement sur la fiche produit
+        // Si une référence exacte est trouvée, on redirige directement vers la fiche produit
         if ($term = $request->input('q')) {
             $term = trim($term);
 
@@ -24,19 +24,27 @@ class CatalogueController extends Controller
             }
         }
 
-        // 1. Requête catalogue classique
+        // Base query avec relations utiles
         $query = Piece::query()
             ->with(['category', 'compatibleEngines'])
             ->where('stock', '>', 0);
 
-        // 1. Filtre compatibilité véhicule
+        /*
+         |---------------------------------------------------------
+         | 1. Filtre compatibilité véhicule (sélection moteur)
+         |---------------------------------------------------------
+         */
         if ($engineId = session('selected_engine_id')) {
             $query->whereHas('compatibleEngines', function ($q) use ($engineId) {
                 $q->where('vehicle_engines.id', $engineId);
             });
         }
 
-        // 2. Recherche texte (fallback si pas de ref exacte)
+        /*
+         |---------------------------------------------------------
+         | 2. Recherche texte simple (fallback si pas de référence exacte)
+         |---------------------------------------------------------
+         */
         if ($term = $request->input('q')) {
             $query->where(function ($q) use ($term) {
                 $q->where('nom', 'like', "%{$term}%")
@@ -45,7 +53,11 @@ class CatalogueController extends Controller
             });
         }
 
-        // 3. Filtres catalogue
+        /*
+         |---------------------------------------------------------
+         | 3. Filtres catalogue (catégorie, marque, prix, côté, position)
+         |---------------------------------------------------------
+         */
         if ($categoryId = $request->input('category')) {
             $query->where('category_id', $categoryId);
         }
@@ -54,11 +66,11 @@ class CatalogueController extends Controller
             $query->where('brand', $brand);
         }
 
-        if ($side = $request->input('side')) {
+        if ($side = $request->input('side')) { // left, right, both...
             $query->where('side', $side);
         }
 
-        if ($position = $request->input('position')) {
+        if ($position = $request->input('position')) { // front, rear...
             $query->where('position', $position);
         }
 
@@ -70,7 +82,11 @@ class CatalogueController extends Controller
             $query->where('prix', '<=', (float) $maxPrice);
         }
 
-        // 4. Tri
+        /*
+         |---------------------------------------------------------
+         | 4. Tri (par défaut : pertinence / nouveauté)
+         |---------------------------------------------------------
+         */
         switch ($request->input('sort')) {
             case 'price_asc':
                 $query->orderBy('prix', 'asc');
@@ -89,9 +105,14 @@ class CatalogueController extends Controller
                 break;
         }
 
-        // 5. Pagination
+        /*
+         |---------------------------------------------------------
+         | 5. Pagination
+         |---------------------------------------------------------
+         */
         $pieces = $query->paginate(12)->withQueryString();
 
+        // Données pour les filtres (sidebar)
         $categories = Category::orderBy('nom')->get();
         $brands     = Piece::select('brand')->distinct()->orderBy('brand')->pluck('brand');
 
@@ -120,12 +141,18 @@ class CatalogueController extends Controller
      */
     public function show(Piece $piece)
     {
+        // Pièces similaires : même catégorie, exclure la pièce courante
         $similarPieces = Piece::where('category_id', $piece->category_id)
             ->where('id', '!=', $piece->id)
             ->orderBy('prix', 'asc')
             ->take(6)
             ->get();
 
-        return view('pieces.show', compact('piece', 'similarPieces'));
+            return view('produits.show', [
+                'piece'         => $piece,
+                'similarPieces' => $similarPieces,
+                'complementary' => collect(), // temporaire si tu n'as pas encore le service
+            ]);
+            
     }
 }
