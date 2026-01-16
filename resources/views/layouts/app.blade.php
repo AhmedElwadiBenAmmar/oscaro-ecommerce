@@ -33,6 +33,15 @@
                     <a href="{{ route('vehicle.form') }}" class="text-sm font-medium text-gray-700 hover:text-red-600">
                         Mon véhicule
                     </a>
+                    @auth
+    <form method="POST" action="{{ route('logout') }}">
+        @csrf
+        <button type="submit" class="btn btn-outline-danger">
+            Déconnexion
+        </button>
+    </form>
+@endauth
+
 
                     @auth
                         <a href="{{ route('cart.index') }}" class="text-sm text-gray-700 hover:underline">
@@ -86,6 +95,8 @@
             </div>
         </div>
     </footer>
+    @stack('scripts')
+
 
 </body>
 </html>

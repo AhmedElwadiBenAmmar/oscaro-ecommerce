@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+
+
 
 class User extends Authenticatable
 {
@@ -64,10 +67,15 @@ class User extends Authenticatable
     /**
      * Get the comparisons for the user.
      */
-    public function comparisons(): HasMany
-    {
-        return $this->hasMany(Comparison::class);
-    }
+   // app/Models/User.php
+   public function comparisons()
+   {
+       return $this->hasMany(\App\Models\Comparison::class);
+   }
+   
+
+
+
 
     /**
      * Get all reviews written by the user.
